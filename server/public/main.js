@@ -1,20 +1,21 @@
 const API_BASE = "http://localhost:3000";
 
-let map;
+var map;
 let markers = [];
 let allPlaces = [];
 let selectedPlaces = [];
 let courseMarkers = [];
 let coursePolyline = null;
+let markersVisible = false; // 초기 상태: 안보임
 
 function initMap() {
     const mapContainer = document.getElementById("map");
-    if (!mapContainer) return;
+        if (!mapContainer) return;
 
-    const options = {
-        center: new kakao.maps.LatLng(37.5665, 126.978),
-        level: 5,
-    };
+        const options = {
+            center: new kakao.maps.LatLng(37.5665, 126.978),
+            level: 5,
+        };
 
     map = new kakao.maps.Map(mapContainer, options);
 
@@ -35,6 +36,19 @@ function initMap() {
 
     const polylineBtn = document.getElementById("showPolylineBtn");
     polylineBtn.addEventListener("click", toggleCoursePolyline);
+
+    const toggleMarkersBtn = document.getElementById("toggleMarkersBtn"); 
+    toggleMarkersBtn.addEventListener("click", toggleAllMarkers);
+}
+
+function toggleAllMarkers() {
+    if (markersVisible) {
+        markers.forEach((marker) => marker.setMap(null));
+        markersVisible = false;
+    } else {
+        markers.forEach((marker) => marker.setMap(map));
+        markersVisible = true;
+    }
 }
 
 function triggerSearch() {
@@ -42,9 +56,14 @@ function triggerSearch() {
         .getElementById("searchInput")
         .value.trim()
         .toLowerCase();
+    
     filterItinerary(keyword);
     filterMarkers(keyword);
 }
+
+window.onload = function () {
+    initMap();
+};
 
 async function loadPlaces() {
     try {
@@ -65,6 +84,7 @@ async function loadPlaces() {
                 position: new kakao.maps.LatLng(p.latitude, p.longitude),
                 title: p.name,
             });
+
             kakao.maps.event.addListener(marker, "click", () =>
                 toggleSelectPlace(p)
             );

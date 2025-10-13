@@ -12,7 +12,7 @@ app.use(
             defaultSrc: ["'self'"],
             scriptSrc: [
                 "'self'",
-                //"'unsafe-eval'",
+                "'unsafe-eval'",
                 "https://dapi.kakao.com",
                 "https://t1.daumcdn.net",
                 "http://t1.daumcdn.net",
@@ -35,7 +35,11 @@ app.use(
                 "https://map.kakao.com",
                 "https://s1.daumcdn.net",
             ],
-            connectSrc: ["'self'", "http://localhost:3000"],
+            connectSrc: [
+                "'self'",
+                "http://localhost:3000",
+                "https://dapi.kakao.com", 
+            ],
         },
     })
 );
