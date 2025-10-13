@@ -83,6 +83,7 @@ async function loadPlaces() {
                 map,
                 position: new kakao.maps.LatLng(p.latitude, p.longitude),
                 title: p.name,
+                map: markersVisible ? map : null,
             });
 
             kakao.maps.event.addListener(marker, "click", () =>
