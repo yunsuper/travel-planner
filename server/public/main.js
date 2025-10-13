@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000";
+window.API_BASE = "http://localhost:3000";
 
 var map;
 let markers = [];
@@ -127,7 +127,12 @@ function searchPlaceByKakao(keyword) {
             // 지도 중심 설정
             const bounds = new kakao.maps.LatLngBounds();
             if (place.x && place.y) {
-                bounds.extend(new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x)));
+                bounds.extend(
+                    new kakao.maps.LatLng(
+                        parseFloat(place.y),
+                        parseFloat(place.x)
+                    )
+                );
             }
 
             if (!bounds.isEmpty()) {

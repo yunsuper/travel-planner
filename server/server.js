@@ -49,6 +49,7 @@ app.use("/places", require("./routes/places"));
 app.use("/courses", require("./routes/courses"));
 app.use("/course_places", require("./routes/course_places"));
 app.use("/schedules", require("./routes/schedules"));
+app.use("/alarms", require("./routes/alarms"));
 
 app.use(express.static(path.join(__dirname, "public"), { maxAge: 0 }));
 
