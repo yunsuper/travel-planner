@@ -8,20 +8,21 @@ let courseMarkers = [];
 let coursePolyline = null;
 let markersVisible = false; // 초기 상태: 안보임
 
+// 지도 초기화
 function initMap() {
     const mapContainer = document.getElementById("map");
-        if (!mapContainer) return;
+    if (!mapContainer) return;
 
-        const options = {
-            center: new kakao.maps.LatLng(37.5665, 126.978),
-            level: 5,
-        };
+    const options = {
+        center: new kakao.maps.LatLng(37.5665, 126.978),
+        level: 5,
+    };
 
     map = new kakao.maps.Map(mapContainer, options);
 
-    loadPlaces();
-    loadSchedule();
-    loadCoursePolyline();
+    loadPlaces(); // DB 마커 로드
+    loadSchedule(); // 일정 로드
+    loadCoursePolyline(); // 코스 폴리라인 로드
 
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
@@ -29,7 +30,7 @@ function initMap() {
 
     searchBtn.addEventListener("click", triggerSearch);
     searchInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") triggerSearch();
+        if (e.key === "Enter") triggerSearch(searchInput.value);
     });
 
     saveBtn.addEventListener("click", saveSelectedPlaces);
@@ -37,7 +38,7 @@ function initMap() {
     const polylineBtn = document.getElementById("showPolylineBtn");
     polylineBtn.addEventListener("click", toggleCoursePolyline);
 
-    const toggleMarkersBtn = document.getElementById("toggleMarkersBtn"); 
+    const toggleMarkersBtn = document.getElementById("toggleMarkersBtn");
     toggleMarkersBtn.addEventListener("click", toggleAllMarkers);
 }
 
@@ -51,20 +52,82 @@ function toggleAllMarkers() {
     }
 }
 
+// DB+Kakao 통합 검색
 function triggerSearch() {
     const keyword = document
         .getElementById("searchInput")
         .value.trim()
         .toLowerCase();
-    
+    // 1. DB 마커 필터
     filterItinerary(keyword);
-    filterMarkers(keyword);
+
+    // 2. DB 결과 없으면 Kakao API 검색
+    const foundInDB = allPlaces.some((p) =>
+        p.name.toLowerCase().includes(keyword)
+    );
+    if (!foundInDB) {
+        searchPlaceByKakao(keyword);
+    }
 }
 
-window.onload = function () {
-    initMap();
-};
+// DB+Kakao 통합 검색에서 Kakao API 호출
+function searchPlaceByKakao(keyword) {
+    if (!keyword) return;
 
+    var ps = new kakao.maps.services.Places();
+    ps.keywordSearch(keyword, function (data, status) {
+        if (status === kakao.maps.services.Status.OK && data.length > 0) {
+            const place = data[0]; // 배열의 첫 번째 결과만 사용
+            console.log("카카오맵 검색 결과:", data);
+
+            // 기존 DB 마커 숨기기
+            markers.forEach((m) => m.setMap(null));
+
+            // 첫 번째 결과 마커만 표시
+            const marker = new kakao.maps.Marker({
+                map: map,
+                position: new kakao.maps.LatLng(place.y, place.x),
+                title: place.place_name,
+            });
+
+            kakao.maps.event.addListener(marker, "click", function () {
+                // DB에 없는 장소이므로 selectedPlaces 배열에 임시 객체로 추가
+                const tempPlace = {
+                    places_id: null, // DB ID 없음
+                    name: place.place_name,
+                    latitude: parseFloat(place.y),
+                    longitude: parseFloat(place.x),
+                    isTemp: true,
+                };
+                toggleSelectPlace(tempPlace);
+            });
+
+            // 지도 중심 설정
+            const bounds = new kakao.maps.LatLngBounds();
+            if (place.x && place.y) {
+                bounds.extend(new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x)));
+            }
+
+            if (!bounds.isEmpty()) {
+                const sw = bounds.getSouthWest();
+                const ne = bounds.getNorthEast();
+
+                if (sw.equals(ne)) {
+                    map.setCenter(sw);
+                    map.setLevel(5);
+                } else {
+                    map.setBounds(bounds);
+                }
+            }
+        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+            alert("검색 결과가 없습니다.");
+        } else {
+            console.error("카카오맵 검색 오류:", status);
+        }
+    });
+}
+
+// 기존 DB 마커 로드
 async function loadPlaces() {
     try {
         const res = await fetch(`${API_BASE}/places`);
@@ -96,6 +159,7 @@ async function loadPlaces() {
     }
 }
 
+// 선택 장소 추가/삭제
 function toggleSelectPlace(place) {
     const index = selectedPlaces.findIndex(
         (p) => p.places_id === place.places_id
@@ -105,6 +169,7 @@ function toggleSelectPlace(place) {
     renderSelectedList();
 }
 
+// 선택 목록 렌더링
 function renderSelectedList() {
     const list = document.getElementById("coursePlacesList");
     if (!list) return console.error("coursePlacesList not found in DOM");
@@ -128,6 +193,17 @@ function renderSelectedList() {
 }
 
 async function saveSelectedPlaces() {
+    const dbPlaces = selectedPlaces.filter((p) => !p.isTemp);
+    const tempPlaces = selectedPlaces.filter((p) => p.isTemp);
+
+    if (tempPlaces.length > 0) {
+        alert(
+            "DB에 없는 장소는 현재 저장할 수 없습니다. 필요시 서버 등록 후 저장하세요."
+        );
+    }
+
+    if (dbPlaces.length === 0) return;
+
     if (selectedPlaces.length === 0) {
         alert("저장할 장소를 선택하세요!");
         return;
@@ -408,6 +484,7 @@ function filterItinerary(query) {
     });
 }
 
+// DB 마커 필터 + 결과 여부 반환
 function filterMarkers(query) {
     let found = false;
     markers.forEach((marker, i) => {
