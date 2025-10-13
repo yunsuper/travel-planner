@@ -8,6 +8,27 @@ let courseMarkers = [];
 let coursePolyline = null;
 let markersVisible = false; // 초기 상태: 안보임
 
+// BigInt 안전 변환 함수
+function parseBigIntFields(obj) {
+    if (Array.isArray(obj)) {
+        return obj.map(parseBigIntFields);
+    } else if (obj && typeof obj === "object") {
+        const newObj = {};
+        for (const key in obj) {
+            const val = obj[key];
+            if (typeof val === "string" && /^\d+$/.test(val)) {
+                const num = Number(val);
+                newObj[key] = Number.isSafeInteger(num) ? num : val;
+            } else {
+                newObj[key] = parseBigIntFields(val);
+            }
+        }
+        return newObj;
+    } else {
+        return obj;
+    }
+}
+
 // 지도 초기화
 function initMap() {
     const mapContainer = document.getElementById("map");
@@ -42,6 +63,7 @@ function initMap() {
     toggleMarkersBtn.addEventListener("click", toggleAllMarkers);
 }
 
+// 마커 토글
 function toggleAllMarkers() {
     if (markersVisible) {
         markers.forEach((marker) => marker.setMap(null));
@@ -135,9 +157,10 @@ async function loadPlaces() {
             const errorText = await res.text();
             throw new Error(`장소 조회 실패: ${res.status} - ${errorText}`);
         }
-        const places = await res.json();
+        const places = parseBigIntFields(await res.json());
         allPlaces = places;
 
+        // 기존 마커 제거
         markers.forEach((m) => m.setMap(null));
         markers = [];
 
@@ -192,67 +215,78 @@ function renderSelectedList() {
     });
 }
 
+//선택된 장소 저장
 async function saveSelectedPlaces() {
-    const dbPlaces = selectedPlaces.filter((p) => !p.isTemp);
-    const tempPlaces = selectedPlaces.filter((p) => p.isTemp);
-
-    if (tempPlaces.length > 0) {
-        alert(
-            "DB에 없는 장소는 현재 저장할 수 없습니다. 필요시 서버 등록 후 저장하세요."
-        );
-    }
-
-    if (dbPlaces.length === 0) return;
-
     if (selectedPlaces.length === 0) {
         alert("저장할 장소를 선택하세요!");
         return;
     }
 
     try {
-        const res = await fetch(`${API_BASE}/course_places/courses/1`);
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error("❌ 기존 장소 조회 에러:", res.status, errorText);
-            throw new Error(`기존 장소 조회 실패: ${res.status}`);
-        }
-        const existingPlaces = await res.json();
-        console.log("saveSelectedPlaces GET data:", existingPlaces);
+        // 1️⃣ DB에 이미 있는 장소만 필터링
+        const dbPlaces = selectedPlaces.filter((p) => !p.isTemp);
+        const tempPlaces = selectedPlaces.filter((p) => p.isTemp);
 
+        // 2️⃣ 기존 장소 조회
+        const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        if (!res.ok) throw new Error("기존 장소 조회 실패");
+        const existingPlaces = parseBigIntFields(await res.json());
         const existingPlaceIds = existingPlaces.map((p) => p.places_id);
+
+        // 중복 처리
         const duplicatePlaces = selectedPlaces.filter((p) =>
             existingPlaceIds.includes(p.places_id)
         );
         if (duplicatePlaces.length > 0) {
             const names = duplicatePlaces.map((p) => p.name).join(", ");
-            alert(`이미 저장된 장소입니다: ${names}\n그래도 저장됩니다.`);
+            alert(
+                `이미 저장된 장소: ${duplicate.map((d) => d.name).join(", ")}`
+            );
         }
 
-        const payload = {
-            courses_id: 1,
-            places: selectedPlaces.map((p) => p.places_id),
-        };
+        // 3️⃣ DB에 있는 장소 bulk 저장
+        const dbPlaceIdsToSave = dbPlaces
+            .filter((p) => !existingPlaceIds.includes(p.places_id))
+            .map((p) => p.places_id);
 
-        const saveRes = await fetch(`${API_BASE}/course_places/bulk`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-
-        if (!saveRes.ok) {
-            const errorText = await saveRes.text();
-            console.error("❌ bulk 저장 에러:", saveRes.status, errorText);
-            throw new Error(`장소 저장 실패: ${saveRes.status}`);
+        if (dbPlaceIdsToSave.length > 0) {
+            await fetch(`${API_BASE}/course_places/bulk`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    courses_id: 1,
+                    places: dbPlaceIdsToSave,
+                }),
+            });
         }
 
-        const list = await saveRes.json();
-        console.log("saveSelectedPlaces POST data:", list);
-        renderCoursePlaces(list);
+        // 4️⃣ 임시 장소는 /add-temp API로 등록 후 코스에 추가
+        for (const p of tempPlaces) {
+            const addRes = await fetch(`${API_BASE}/course_places/add-temp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    courses_id: 1,
+                    name: p.name,
+                    latitude: p.latitude,
+                    longitude: p.longitude,
+                }),
+            });
+            if (!addRes.ok) {
+                const errText = await addRes.text();
+                console.error("임시 장소 저장 실패:", errText);
+                alert(`"${p.name}" 저장 실패: ${errText}`);
+            } else {
+                const data = parseBigIntFields(await addRes.json());
+                p.places_id = data.places_id; // 새 ID 업데이트
+                p.isTemp = false;
+            }
+        }
 
         alert("코스가 저장되었습니다.");
         selectedPlaces = [];
         renderSelectedList();
-        loadCoursePolyline();
+        loadCoursePolyline(); // 폴리라인 갱신
     } catch (err) {
         console.error("❌ 장소 저장 실패:", err);
         alert(`장소 저장에 실패했습니다: ${err.message}`);
@@ -304,12 +338,15 @@ function renderCoursePlaces(places) {
                             `삭제 실패: ${res.status} - ${errorText}`
                         );
                     }
-                    const response = await res.json();
+                    const response = parseBigIntFields(await res.json());
                     console.log("DELETE response:", response);
                     alert(
                         `${p.name || "알 수 없는 장소"} 장소가 삭제되었습니다.`
                     );
                     renderCoursePlaces(response.places);
+
+                    // 마커와 폴리라인 갱신
+                    loadCoursePolyline();
                 } catch (err) {
                     console.error("❌ 장소 삭제 실패:", err);
                     alert(`장소 삭제에 실패했습니다: ${err.message}`);
@@ -322,6 +359,7 @@ function renderCoursePlaces(places) {
     });
 }
 
+// 코스 폴리라인 토글
 let isPolylineVisible = false;
 
 async function toggleCoursePolyline() {
@@ -338,6 +376,7 @@ async function toggleCoursePolyline() {
     }
 }
 
+// 코스 폴리라인 표시
 async function showCoursePolyline() {
     try {
         const res = await fetch(`${API_BASE}/course_places/courses/1`);
@@ -345,7 +384,7 @@ async function showCoursePolyline() {
             const errorText = await res.text();
             throw new Error(`폴리라인 조회 실패: ${res.status} - ${errorText}`);
         }
-        const data = await res.json();
+        const data = parseBigIntFields(await res.json());
         console.log("showCoursePolyline data:", data);
 
         const dataArray = Array.isArray(data) ? data : [data];
@@ -381,12 +420,14 @@ async function showCoursePolyline() {
     }
 }
 
+// 코스 폴리라인 숨기기
 function hideCoursePolyline() {
     if (coursePolyline) {
         coursePolyline.setMap(null);
     }
 }
 
+// 서버에서 코스 불러오기
 async function loadCoursePolyline() {
     try {
         const res = await fetch(`${API_BASE}/course_places/courses/1`);
@@ -395,7 +436,7 @@ async function loadCoursePolyline() {
             console.error("❌ 서버 응답 에러:", res.status, errorText);
             throw new Error(`서버 응답 에러: ${res.status}`);
         }
-        const data = await res.json();
+        const data = parseBigIntFields(await res.json());
         console.log("📦 서버에서 받은 data:", data);
 
         const list = document.getElementById("savedCoursesList");
@@ -411,6 +452,7 @@ async function loadCoursePolyline() {
 
         renderCoursePlaces(dataArray);
 
+        // 기존 코스 마커와 폴리라인 제거
         courseMarkers.forEach((m) => m.setMap(null));
         courseMarkers = [];
         if (coursePolyline) coursePolyline.setMap(null);
@@ -450,10 +492,16 @@ async function loadCoursePolyline() {
 
 async function loadSchedule() {
     const container = document.getElementById("itineraryList");
+    if (!container) return console.error("itineraryList not found in DOM");
+
     container.innerHTML = "";
     try {
         const res = await fetch(`${API_BASE}/schedules/courses/1`);
-        const schedules = await res.json();
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`일정 조회 실패: ${res.status} - ${errorText}`);
+        }
+        const schedules = parseBigIntFields(await res.json());
 
         if (!Array.isArray(schedules) || schedules.length === 0) {
             container.innerHTML = "<p>등록된 일정이 없습니다.</p>";

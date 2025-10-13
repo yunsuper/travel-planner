@@ -2,6 +2,15 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
+// BigInt 안전 직렬화 함수
+function stringifyBigInt(obj) {
+    return JSON.parse(
+        JSON.stringify(obj, (_, value) =>
+            typeof value === "bigint" ? value.toString() : value
+        )
+    );
+}
+
 // ✅ 여러 장소 한 번에 저장
 router.post("/bulk", async (req, res) => {
     let connection;
@@ -68,7 +77,7 @@ router.post("/bulk", async (req, res) => {
         );
 
         await connection.commit();
-        res.json(Array.isArray(rows) ? rows : [rows]);
+        res.json(stringifyBigInt(Array.isArray(rows) ? rows : [rows]));
     } catch (err) {
         await connection.rollback();
         console.error("❌ bulk course_places 추가 실패:", {
@@ -109,7 +118,7 @@ router.get("/courses/:courses_id", async (req, res) => {
         const rows = await connection.query(query, [courseId]);
         console.log("GET /course_places/courses/1 raw result:", rows);
 
-        res.json(Array.isArray(rows) ? rows : [rows]);
+        res.json(stringifyBigInt(Array.isArray(rows) ? rows : [rows]));
     } catch (err) {
         console.error("❌ course_places 조회 실패:", {
             message: err.message,
@@ -165,10 +174,12 @@ router.delete("/places/:places_id", async (req, res) => {
             `,
             []
         );
-        res.json({
-            message: "장소가 삭제되었습니다.",
-            places: Array.isArray(rows) ? rows : [rows],
-        });
+        res.json(
+            stringifyBigInt({
+                message: "장소가 삭제되었습니다.",
+                places: Array.isArray(rows) ? rows : [rows],
+            })
+        );
     } catch (err) {
         console.error("❌ course_places 삭제 실패:", {
             message: err.message,
@@ -178,6 +189,64 @@ router.delete("/places/:places_id", async (req, res) => {
         res.status(500).json({
             error: `DB delete failed: ${err.sqlMessage || err.message}`,
         });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// ✅ 임시 장소를 DB에 등록 후 코스에 추가
+router.post("/add-temp", async (req, res) => {
+    const { courses_id, name, latitude, longitude } = req.body;
+    if (!courses_id || isNaN(parseInt(courses_id, 10))) {
+        return res.status(400).json({ error: "유효한 courses_id가 필요합니다." });
+    }
+    if (!name || !latitude || !longitude) {
+        return res.status(400).json({ error: "이름과 좌표가 필요합니다." });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        // 1. places 테이블에 새 장소 추가
+        const insertPlaceQuery =
+            "INSERT INTO places (name, latitude, longitude) VALUES (?, ?, ?)";
+        const result = await connection.query(insertPlaceQuery, [
+            name,
+            latitude,
+            longitude,
+        ]);
+        const newPlaceId = result.insertId;
+
+        // 2. course_places에 코스와 연결
+        const insertCourseQuery =
+            "INSERT INTO course_places (courses_id, places_id, sequence) VALUES (?, ?, ?)";
+
+        // sequence는 기존 최대값 + 1
+        const maxSeqResult = await connection.query(
+            "SELECT MAX(sequence) AS maxSeq FROM course_places WHERE courses_id = ?",
+            [courses_id]
+        );
+        const maxSeq = maxSeqResult[0]?.maxSeq || 0;
+
+        await connection.query(insertCourseQuery, [
+            courses_id,
+            newPlaceId,
+            maxSeq + 1,
+        ]);
+
+        await connection.commit();
+
+        // BigInt를 문자열로 변환해서 반환
+        res.json({
+            message: "새로운 장소가 코스에 추가되었습니다.",
+            places_id: newPlaceId.toString(),
+        });
+    } catch (err) {
+        await connection.rollback();
+        console.error("❌ 임시 장소 추가 실패:", err);
+        res.status(500).json({ error: err.message });
     } finally {
         if (connection) connection.release();
     }
