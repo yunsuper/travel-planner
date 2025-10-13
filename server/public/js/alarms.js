@@ -53,6 +53,7 @@ function showCustomModal(message, onConfirm) {
     box.style.color = "white";   
     box.style.padding = "20px";
     box.style.borderRadius = "8px";
+    box.style.minWidth = "200px";
     box.style.border = "2px solid white"; // 흰색 테두리 2px
     box.innerHTML = `
         <p style="margin-bottom:12px;">${message}</p>
