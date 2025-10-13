@@ -34,13 +34,24 @@
     }
 
     .shell{
-    width:min(1200px,96%);
+     width: min(1200px, 96%);
+    margin: 0 auto;
+    padding: 16px 0;
+    }
+
+    .grid-container {
     display: grid;
-    margin: 0 auto; /* 가운데 정렬 */
-    padding: 32px 0;
-    box-sizing: border-box;
-    gap:var(--gap);
-    max-height: 100vh; /* 뷰포트 높이 내에서만 */
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 16px;
+    height: calc(100vh - 120px); /* 헤더+패딩 제외 */
+    }
+
+    .grid-item {
+    background: #111;
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow-y: auto;
     }
 
     /* ================= Header ================= */
@@ -73,11 +84,33 @@
     width: 100%;
     }
 
+    /* 전체 컨테이너 */
+.container {
+    display: flex;
+    grid-template-columns: 1fr 1fr; /* 좌우 2열 */
+    grid-template-rows: 1fr 1fr;    /* 상하 2행 */
+    gap: 16px; /* 좌우 간격 */
+    height: 100vh; /* 화면 전체 높이 */
+    padding: 16px;
+    }
+
     #map {
       width: 100%;
-      height: 400px;
-      height: auto; /* 자동 높이 */
+      height: 100%;
       border-radius: var(--radius);
+    }
+
+    /* 오른쪽 상단: 저장된 코스 */
+    #courseContainer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #selectedList, #recommendList, #alarmList {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
     }
 
     #selectedContainer {
@@ -87,6 +120,7 @@
         padding: 16px;
         max-height: none; /* 스크롤 제한 제거 */
         overflow-y: visible; /* 세로 스크롤 허용 */
+        margin-top: 5px;
     }
 
     #selectedList {
@@ -101,6 +135,20 @@
         background: rgba(255,255,255,0.05);
         border-radius: 8px;
         margin-bottom: 6px;
+    }
+
+        /* 좌하단: 추천 일정 */
+    #recommendContainer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* 우하단: 알람 & 메모 */
+    #alarmContainer {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
 /* 카드 스타일 */
@@ -162,8 +210,12 @@ footer.small{color:var(--muted);font-size:12px;padding-top:8px}
 }
 
 /* ================= 반응형 미디어 쿼리 ================= */
-@media (max-width:768px) {
+@media (max-width:900px) {
     .content {grid-template-columns: 1fr; grid-template-rows: 2fr 1fr; height: auto;}
+    .shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, auto);
+    }
     #map {height: 250px;}
     #selectedContainer {height: 200px;}
 }
@@ -197,91 +249,84 @@ footer.small{color:var(--muted);font-size:12px;padding-top:8px}
 ">
 </head>
 <body>
-    <div class="shell">
-        <header>
+<div class="shell">
+    <header>
         <div class="logo">
-        <div class="mark">TC</div>
-        <div>
-        <h1>여행 코스 플래너</h1>
+            <div class="mark">TC</div>
+            <div>
+                <h1>여행 코스 플래너</h1>
+            </div>
+        </div>
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="장소 검색" />
+            <button id="searchBtn">검색</button>
+        </div>
+    </header>
+
+     <!-- 선택된 장소 -->
+    <div id="selectedContainer" class="card">
+        <h3>선택된 장소</h3>
+        <ul id="coursePlacesList"></ul> <!-- 사용자가 선택한 장소 -->
+        <button id="saveCourseBtn">코스 저장</button>
+        <!-- 삭제 버튼은 각 아이템마다 넣는 게 좋음 -->
+    </div>
+
+    <div class="grid-container">
+        <!-- 좌상단: 맵 -->
+        <div id="map" class="grid-item"></div>
+
+        <!-- 우상단: 저장된 코스 -->
+        <div id="courseContainer" class="grid-item">
+            <button id="showPolylineBtn" class="search-btn">폴리라인 표시/삭제</button>
+            <button id="toggleMarkersBtn" class="search-btn">전체 마커 보이기/숨기기</button>
+            <h2>저장된 코스</h2>
+            <ul id="savedCoursesList"></ul>
+        </div>
+
+        <!-- 좌하단: 오늘의 추천 일정 -->
+        <div id="recommendContainer" class="grid-item card">
+            <h2>오늘의 추천 일정</h2>
+            <p style="color:var(--muted)">요즘처럼 날씨가 좋을때, 고즈넉한 정동길을 걸어보면서 사색에 잠겨보는건 어떨까요?</p>
+            <div class="itinerary" id="itineraryList">
+                <article class="item">
+                    <div class="index">1</div>
+                    <div>
+                        <h3>오전 — 카페 거리 산책</h3>
+                        <p>감각적인 카페와 소규모 갤러리를 둘러보는 코스. 도보 이동 중심.</p>
+                    </div>
+                </article>
+                <article class="item">
+                    <div class="index">2</div>
+                    <div>
+                        <h3>점심 — 로컬 맛집</h3>
+                        <p>미쉐린 가이드에 오른 소문난 식당(사전 예약 권장).</p>
+                    </div>
+                </article>
+                <article class="item">
+                    <div class="index">3</div>
+                    <div>
+                        <h3>오후 — 미술관</h3>
+                        <p>현대 미술 전시 관람 및 기념품숍 방문.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <!-- 우하단: 알람 & 메모 -->
+        <div id="alarmContainer" class="grid-item card">
+            <h2>알람 & 메모</h2>
+            <p style="color:var(--muted)">출발 시간, 일정, 장소 메모 등을 입력할 수 있습니다.</p>
+            <form id="alarmForm">
+                <input type="datetime-local" id="alarmTime" style="margin-bottom:8px; width:100%; padding:4px;">
+                <textarea id="alarmMessage" placeholder="알람 메시지 / 메모" rows="4" style="width:100%; margin-bottom:8px;"></textarea>
+                <button id="addAlarmBtn">알람 등록</button>
+            </form>
+            <ul id="alarmList" style="max-height:200px; overflow-y:auto; margin-top:8px;"></ul>
         </div>
     </div>
 
-    <!-- header -->
-    <div class="controls">
-        <input type="text" id="searchInput" placeholder="장소 검색" />
-        <button id="searchBtn">검색</button>
-        </div>
-        </header>
-
-        <!-- 선택된 장소 + 저장 버튼 -->
-        <div id="selectedContainer" class="card">
-            <h3>선택된 장소</h3>
-            <ul id="coursePlacesList"></ul> <!-- 사용자가 선택한 장소 -->
-            <button id="saveCourseBtn">코스 저장</button>
-            <button type="button" data-index="${index}">삭제</button>
-          </div>
-
-        <div id="map" style="width:100%; height:400px; margin-top:20px; border-radius:12px; overflow:hidden;"></div>
-        
-          <div id="savedCourses">
-            <h3>저장된 코스</h3>
-            <ul id="savedCoursesList"></ul><!-- DB에 저장된 장소 -->
-            <button id="showPolylineBtn" class="search-btn">폴리라인 표시/삭제</button>
-            <button id="toggleMarkersBtn" class="search-btn">전체 마커 보이기/숨기기</button>
-          </div>  
-
-        <main class="content">
-            <section class="card">
-            <h2 style="margin:0 0 8px">오늘의 추천 일정</h2>
-            <p style="margin:0 0 14px;color:var(--muted)">요즘처럼 날씨가 좋을때, 고즈넉한 정동길을 걸어보면서 사색에 잠겨보는건 어떨까요?</p>          
-            
-            <div class="itinerary" id="itineraryList">
-            <article class="item">
-            <div class="index">1</div>
-            <div>
-            <h3>오전 — 카페 거리 산책</h3>
-            <p>감각적인 카페와 소규모 갤러리를 둘러보는 코스. 도보 이동 중심.</p>
-            </div>
-            </article>    
-            
-            <article class="item">
-            <div class="index">2</div>
-            <div>
-            <h3>점심 — 로컬 맛집</h3>
-            <p>미쉐린 가이드에 오른 소문난 식당(사전 예약 권장).</p>
-            </div>
-            </article>    
-            
-            <article class="item">
-            <div class="index">3</div>
-            <div>
-            <h3>오후 — 미술관</h3>
-            <p>현대 미술 전시 관람 및 기념품숍 방문.</p>
-            </div>
-            </article>
-            </div>
-            </section>
-               
-            <section class="card" id="alarmSection">
-                <h3 style="margin:0 0 10px">알람 & 메모</h3>
-                <p style="margin:0;color:var(--muted)">출발 시간, 일정, 장소 메모 등을 입력할 수 있습니다.</p>
-                
-                <!-- 알람/메모 입력 폼 -->
-            <form id="alarmForm" style="margin-top:12px;">
-                <input type="datetime-local" id="alarmTime" style="margin-bottom:8px; width:250px; padding:4px; font-size:14px;">
-                <br>
-                <textarea id="alarmMessage" placeholder="알람 메시지 / 메모" rows="4" style="width:100%;"></textarea>
-                <br>
-                <button id="addAlarmBtn" style="margin-top:4px;">알람 등록</button>
-            </form>
-
-                <!-- 알람 리스트 -->
-                <ul id="alarmList" style="margin-top:12px; padding-left:16px; max-height:200px; overflow-y:auto;"></ul>
-            </section>
-            </main>
-            
-            <footer class="small">© 여행 코스 플래너</footer>
-        </div>
+    <footer class="small">© 여행 코스 플래너</footer>
+</div>
  
         <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=82052cab3c65260dfc440b231c8e1091&libraries=services,clusterer"></script>
         <script src="main.js"></script>
