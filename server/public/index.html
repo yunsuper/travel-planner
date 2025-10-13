@@ -204,10 +204,21 @@ footer.small{color:var(--muted);font-size:12px;padding-top:8px}
             </div>
             </section>
                
-            <section class="card">
-            <h3 style="margin:0 0 10px">메모</h3>
-            <p style="margin:0;color:var(--muted)">장소 설명이나 이동 팁을 여기에 적어 두세요. 예: 편한 신발 권장, 일부 가게는 카드를 받지 않을 수 있음.</p>
-            <div class="small" style="margin-top:12px;color:var(--muted);font-size:13px">출발 시간: 09:30 · 총 예상 소요: 5시간</div>
+            <section class="card" id="alarmSection">
+                <h3 style="margin:0 0 10px">알람 & 메모</h3>
+                <p style="margin:0;color:var(--muted)">출발 시간, 일정, 장소 메모 등을 입력할 수 있습니다.</p>
+                
+                <!-- 알람 입력 -->
+                <div style="margin-top:12px;">
+                    <input type="datetime-local" id="alarmTime" style="margin-bottom:8px; width:200px;">
+                    <br>
+                    <textarea id="alarmMessage" placeholder="알람 메시지 / 메모" rows="4" style="width:100%;"></textarea>
+                    <br>
+                    <button id="addAlarmBtn" style="margin-top:4px;">알람 등록</button>
+                </div>
+
+                <!-- 알람 리스트 -->
+                <ul id="alarmList" style="margin-top:12px; padding-left:16px;"></ul>
             </section>
             </main>
             
