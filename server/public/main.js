@@ -7,6 +7,9 @@ let selectedPlaces = [];
 let courseMarkers = [];
 let coursePolyline = null;
 let markersVisible = false; // 초기 상태: 안보임
+let clusterer = null; // 마커 클러스터러
+let activeOverlay = null; // 커스텀 오버레이 (infowindow)
+
 
 // BigInt 안전 변환 함수
 function parseBigIntFields(obj) {
@@ -41,6 +44,28 @@ function initMap() {
 
     map = new kakao.maps.Map(mapContainer, options);
 
+    // 클러스터러 초기화
+    clusterer = new kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 7, // 👈 이게 "클러스터 해제 기준 줌 레벨"
+        styles: [
+            {
+                width: "50px",
+                height: "50px",
+                background: "rgba(0,0,0,0.2)",
+                color: "#ffffff", // 글씨 색
+                textAlign: "center",
+                lineHeight: "50px",
+                borderRadius: "25px",
+                fontWeight: "bold",
+                fontSize: "14px",
+                textShadow:
+                    "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
+            },
+        ],
+    });
+
     loadPlaces(); // DB 마커 로드
     loadSchedule(); // 일정 로드
     loadCoursePolyline(); // 코스 폴리라인 로드
@@ -63,13 +88,14 @@ function initMap() {
     toggleMarkersBtn.addEventListener("click", toggleAllMarkers);
 }
 
-// 마커 토글
+// 클러스터링 기반 마커 토글
 function toggleAllMarkers() {
+    if (!clusterer) return;
     if (markersVisible) {
-        markers.forEach((marker) => marker.setMap(null));
+        clusterer.clear(); // 클러스터러에서 마커 제거
         markersVisible = false;
     } else {
-        markers.forEach((marker) => marker.setMap(map));
+        clusterer.addMarkers(markers); // 클러스터러에 마커 추가
         markersVisible = true;
     }
 }
@@ -110,6 +136,52 @@ function searchPlaceByKakao(keyword) {
                 map: map,
                 position: new kakao.maps.LatLng(place.y, place.x),
                 title: place.place_name,
+            });
+
+            // 🔹 CustomOverlay 생성
+            const overlayDiv = document.createElement("div");
+            overlayDiv.className = "customoverlay";
+            overlayDiv.innerHTML = `
+                <div class="overlay-wrap">
+                    <div class="overlay-title">${place.place_name}</div>
+                    <div class="overlay-body">${
+                        place.road_address_name ||
+                        place.address_name ||
+                        "주소 정보 없음"
+                    }</div>
+                    <div class="overlay-close" title="닫기">×</div>
+                </div>
+            `;
+
+            const overlay = new kakao.maps.CustomOverlay({
+                content: overlayDiv,
+                position: marker.getPosition(),
+                yAnchor: 1.4,
+                zIndex: 3,
+            });
+
+            // 🔹 마커 클릭 시 CustomOverlay 열기
+            kakao.maps.event.addListener(marker, "click", () => {
+                if (activeOverlay) activeOverlay.setMap(null);
+                overlay.setMap(map);
+                activeOverlay = overlay;
+
+                // 🔹 X 버튼 클릭 시 닫기
+                const closeBtn = overlayDiv.querySelector(".overlay-close");
+                closeBtn.onclick = () => {
+                    overlay.setMap(null);
+                    activeOverlay = null;
+                };
+
+                // 선택 장소 배열에 임시 추가
+                const tempPlace = {
+                    places_id: null, // DB ID 없음
+                    name: place.place_name,
+                    latitude: parseFloat(place.y),
+                    longitude: parseFloat(place.x),
+                    isTemp: true,
+                };
+                toggleSelectPlace(tempPlace);
             });
 
             kakao.maps.event.addListener(marker, "click", function () {
@@ -177,11 +249,53 @@ async function loadPlaces() {
                 map: markersVisible ? map : null,
             });
 
+            // overlayContent를 문자열이 아니라 div 엘리먼트로 생성
+            const overlayDiv = document.createElement("div");
+            overlayDiv.className = "customoverlay";
+
+            overlayDiv.innerHTML = `
+                <div class="overlay-wrap">
+                    <div class="overlay-title">${p.name}</div>
+                <div class="overlay-body">
+                    ${p.address || "주소 정보 없음"}
+                    </div>
+                    <div class="overlay-close" title="닫기">×</div>
+                </div>
+            `;
+
+            const overlay = new kakao.maps.CustomOverlay({
+                content: overlayDiv, // HTMLElement 전달
+                position: marker.getPosition(),
+                yAnchor: 1.4,
+                zIndex: 3,
+            });
+
+            // 🔹 마커 클릭 시 커스텀 오버레이 열기
+            kakao.maps.event.addListener(marker, "click", function () {
+                // 다른 오버레이 닫기
+                if (activeOverlay) activeOverlay.setMap(null);
+                // 새 오버레이 표시
+                overlay.setMap(map);
+                activeOverlay = overlay;
+
+                // 닫기 버튼 연결
+                const closeBtn = overlayDiv.querySelector(".overlay-close");
+                if (closeBtn) {
+                    closeBtn.onclick = () => {
+                        overlay.setMap(null);
+                        activeOverlay = null;
+                    };
+                }
+            });
+
             kakao.maps.event.addListener(marker, "click", () =>
                 toggleSelectPlace(p)
             );
             markers.push(marker);
         });
+        // 클러스터러에 마커 추가
+        if (markersVisible) clusterer.addMarkers(markers);
+
     } catch (err) {
         console.error("❌ 장소 불러오기 실패:", err);
     }
