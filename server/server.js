@@ -2,8 +2,13 @@ const express = require("express");
 const path = require("path");
 const helmet = require("helmet");
 const app = express();
-const port = 3000;
 app.use(express.json());
+
+// dotenv 모듈
+const dotenv = require("dotenv");
+dotenv.config();
+
+app.listen(process.env.PORT);
 
 // CSP 설정
 app.use(
@@ -57,10 +62,15 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+app.get("/api/config", (req, res) => { 
+    res.json({
+        apiBaseUrl: `http://localhost:${process.env.PORT}`,
+        kakaoMapApiKey: process.env.KAKAO_MAP_API_KEY,
+    });
+});
+
 const fs = require("fs");
 console.log(path.join(__dirname, "public", "index.html"));
 console.log(fs.existsSync(path.join(__dirname, "public", "index.html")));
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+

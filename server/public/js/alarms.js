@@ -1,4 +1,4 @@
-const ALARMS_API = "http://localhost:3000";
+const ALARMS_API = window.API_BASE; 
 const COURSE_ID = 1; // 현재 코스 ID, 필요시 동적 변경 가능
 
 const alarmTimeInput = document.getElementById("alarmTime");
@@ -84,7 +84,7 @@ function renderAlarms() {
             if (!confirm(`"${alarm.message}" 알람을 삭제하시겠습니까?`)) return;
             try {
                 const res = await fetch(
-                    `${ALARMS_API}/alarms/${alarm.alarms_id}`,
+                    `${window.API_BASE}/alarms/${alarm.alarms_id}`,
                     {
                         method: "DELETE",
                     }
@@ -109,7 +109,9 @@ function renderAlarms() {
 // DB에서 알람 조회
 async function loadAlarms() {
     try {
-        const res = await fetch(`${ALARMS_API}/alarms/courses/${COURSE_ID}`);
+        const res = await fetch(
+            `${window.API_BASE}/alarms/courses/${COURSE_ID}`
+        );
         if (!res.ok) throw new Error("알람 조회 실패");
         const data = await res.json();
         alarms = data;
@@ -131,7 +133,7 @@ async function addAlarm() {
     }
 
     try {
-        const res = await fetch(`${ALARMS_API}/alarms`, {
+        const res = await fetch(`${window.API_BASE}/alarms`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -165,7 +167,8 @@ async function addAlarm() {
     }
 }
 
-addAlarmBtn.addEventListener("click", addAlarm);
+function initAlarms() {                                                                                   
+    addAlarmBtn.addEventListener("click", addAlarm);
+    loadAlarms();                                                                                         
+};
 
-// 초기 로드
-loadAlarms();

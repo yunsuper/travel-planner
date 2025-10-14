@@ -1,5 +1,3 @@
-window.API_BASE = "http://localhost:3000";
-
 var map;
 let markers = [];
 let allPlaces = [];
@@ -9,7 +7,6 @@ let coursePolyline = null;
 let markersVisible = false; // 초기 상태: 안보임
 let clusterer = null; // 마커 클러스터러
 let activeOverlay = null; // 커스텀 오버레이 (infowindow)
-
 
 // BigInt 안전 변환 함수
 function parseBigIntFields(obj) {
@@ -86,7 +83,60 @@ function initMap() {
 
     const toggleMarkersBtn = document.getElementById("toggleMarkersBtn");
     toggleMarkersBtn.addEventListener("click", toggleAllMarkers);
+
+    initAlarms();
+
+    // 지도 클릭 이벤트: 클릭한 위치에 마커를 추가하고 선택 목록에 추가
+    kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
+        // 클릭한 위치의 좌표
+        const latlng = mouseEvent.latLng;
+        // 주소-좌표 변환 객체 생성 
+        const geocoder = new kakao.maps.services.Geocoder();
+        // 좌표로 주소 정보 요청
+        geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function (result, status) {
+            if (status === kakao.maps.services.Status.OK) {
+                const addressName = result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name;
+                
+                // 새 마커 생성 및 지도에 표시   
+                const marker = new kakao.maps.Marker({
+                    position: latlng,
+                    map: map
+                });
+
+                // 임시 장소 객체 생성 (고유 ID 부여) 
+                const tempPlace = {
+                    places_id: `temp_${Date.now()}`,
+                    name: addressName,
+                    latitude: latlng.getLat(),
+                    longitude: latlng.getLng(),
+                    isTemp: true
+                };
+
+                // 선택 장소 목록에 추가 
+                toggleSelectPlace(tempPlace);
+
+            } else {
+                console.warn('클릭한 위치의 주소를 가져오지 못했습니다.');
+                // 주소를 가져오지 못해도 마커는 추가하고 기본 이름 부여
+                const marker = new kakao.maps.Marker({
+                    position: latlng,
+                    map: map
+                });
+
+                const tempPlace = {
+                    places_id: `temp_${Date.now()}`,
+                    name: '사용자 지정 위치',
+                    latitude: latlng.getLat(),
+                    longitude: latlng.getLng(),
+                    isTemp: true,
+                };
+                toggleSelectPlace(tempPlace);
+                markers.push(marker);
+            }
+        })
+    })
 }
+  
 
 // 클러스터링 기반 마커 토글
 function toggleAllMarkers() {
@@ -95,7 +145,7 @@ function toggleAllMarkers() {
         clusterer.clear(); // 클러스터러에서 마커 제거
         markersVisible = false;
     } else {
-        clusterer.addMarkers(markers); // 클러스터러에 마커 추가
+        clusterer.addMarkers(courseMarkers); // courseMarkers만 클러스터링
         markersVisible = true;
     }
 }
@@ -293,9 +343,6 @@ async function loadPlaces() {
             );
             markers.push(marker);
         });
-        // 클러스터러에 마커 추가
-        if (markersVisible) clusterer.addMarkers(markers);
-
     } catch (err) {
         console.error("❌ 장소 불러오기 실패:", err);
     }
@@ -576,6 +623,11 @@ async function loadCoursePolyline() {
         courseMarkers = [];
         if (coursePolyline) coursePolyline.setMap(null);
 
+        // 클러스터러 초기화
+        if (clusterer) {
+            clusterer.clear();
+        }
+
         dataArray
             .filter((p) => p.latitude && p.longitude)
             .forEach((p) => {
@@ -672,4 +724,3 @@ function filterMarkers(query) {
     }
 }
 
-kakao.maps.load(initMap);
