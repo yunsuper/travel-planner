@@ -7,6 +7,7 @@ let coursePolyline = null;
 let markersVisible = false; // 초기 상태: 안보임
 let clusterer = null; // 마커 클러스터러
 let activeOverlay = null; // 커스텀 오버레이 (infowindow)
+let lastClickedMarker = null; // 마지막으로 클릭된 임시 마커
 
 // BigInt 안전 변환 함수
 function parseBigIntFields(obj) {
@@ -94,49 +95,59 @@ function initMap() {
         const geocoder = new kakao.maps.services.Geocoder();
         // 좌표로 주소 정보 요청
         geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function (result, status) {
-            if (status === kakao.maps.services.Status.OK) {
-                const addressName = result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name;
+            const addressName = (status === kakao.maps.services.Status.OK) ?
+                (result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name) : '사용자 지정 위치';
                 
-                // 새 마커 생성 및 지도에 표시   
-                const marker = new kakao.maps.Marker({
-                    position: latlng,
-                    map: map
-                });
-
-                // 임시 장소 객체 생성 (고유 ID 부여) 
+                const marker = new kakao.maps.Marker({ position: latlng, map: map });
                 const tempPlace = {
                     places_id: `temp_${Date.now()}`,
                     name: addressName,
                     latitude: latlng.getLat(),
                     longitude: latlng.getLng(),
-                    isTemp: true
+                    isTemp: true,
                 };
 
                 // 선택 장소 목록에 추가 
-                toggleSelectPlace(tempPlace);
+                marker.tempId = tempPlace.places_id;
+                lastClickedMarker = marker;
 
-            } else {
-                console.warn('클릭한 위치의 주소를 가져오지 못했습니다.');
-                // 주소를 가져오지 못해도 마커는 추가하고 기본 이름 부여
-                const marker = new kakao.maps.Marker({
-                    position: latlng,
-                    map: map
-                });
-
-                const tempPlace = {
-                    places_id: `temp_${Date.now()}`,
-                    name: '사용자 지정 위치',
-                    latitude: latlng.getLat(),
-                    longitude: latlng.getLng(),
-                    isTemp: true,
-                };
                 toggleSelectPlace(tempPlace);
                 markers.push(marker);
+             });                                                                                        
+     });                                                                                            
+}       
+
+
+// ESC 키 이벤트 리스너
+document.addEventListener("keydown", (event) => { 
+    if (event.key === "Escape") {
+        // 열려있는 커스텀 오버레이(인포윈도우) 닫기
+        if (activeOverlay) {
+            activeOverlay.setMap(null);
+            activeOverlay = null;
+            return; // 오버레이를 닫았으면 다른 동작은 멈춤
+        }
+
+        // 마지막으로 클릭해서 생성된 임시 마커 닫기
+        if (lastClickedMarker && lastClickedMarker.tempId) {
+            // 마커를 지도에서 제거
+            lastClickedMarker.setMap(null);
+
+            // 선택 목록(selectedPlaces)에서 해당 장소 제거
+            const indexToRemove = selectedPlaces.findIndex(
+                (p) => p.places_id === lastClickedMarker.tempId
+            );
+            if (indexToRemove > -1) {
+                selectedPlaces.splice(indexToRemove, 1);
+                renderSelectedList(); // 목록 UI 갱신
             }
-        })
-    })
-}
-  
+
+            // 마지막 클릭 마커 정보 초기화
+            lastClickedMarker = null;
+        }
+    }
+});
+
 
 // 클러스터링 기반 마커 토글
 function toggleAllMarkers() {
@@ -178,15 +189,28 @@ function searchPlaceByKakao(keyword) {
             const place = data[0]; // 배열의 첫 번째 결과만 사용
             console.log("카카오맵 검색 결과:", data);
 
-            // 기존 DB 마커 숨기기
-            markers.forEach((m) => m.setMap(null));
+            // 검색된 장소를 selectedPlaces에 추가하기 위한 임시 객체
+            const tempPlace = {
+                places_id: `temp_${Date.now()}`, // 임시 ID 부여
+                name: place.place_name,
+                latitude: parseFloat(place.y),
+                longitude: parseFloat(place.x),
+                isTemp: true,
+            };
+            // 검색 즉시 선택 목록에 추가
+            toggleSelectPlace(tempPlace);
 
-            // 첫 번째 결과 마커만 표시
+            // 검색 결과 마커 생성
             const marker = new kakao.maps.Marker({
                 map: map,
                 position: new kakao.maps.LatLng(place.y, place.x),
                 title: place.place_name,
             });
+
+            // 생성된 마커를 lastClickedMarker로 설정하여 ESC로 삭제 가능하게 함
+            marker.tempId = tempPlace.places_id;
+            lastClickedMarker = marker;
+            markers.push(marker); // 마커 배열에도 추가
 
             // 🔹 CustomOverlay 생성
             const overlayDiv = document.createElement("div");
@@ -194,11 +218,10 @@ function searchPlaceByKakao(keyword) {
             overlayDiv.innerHTML = `
                 <div class="overlay-wrap">
                     <div class="overlay-title">${place.place_name}</div>
-                    <div class="overlay-body">${
-                        place.road_address_name ||
-                        place.address_name ||
-                        "주소 정보 없음"
-                    }</div>
+                    <div class="overlay-body">${place.road_address_name ||
+                place.address_name ||
+                "주소 정보 없음"
+                }</div>
                     <div class="overlay-close" title="닫기">×</div>
                 </div>
             `;
@@ -210,40 +233,23 @@ function searchPlaceByKakao(keyword) {
                 zIndex: 3,
             });
 
-            // 🔹 마커 클릭 시 CustomOverlay 열기
+            // 검색 즉시 오버레이 표시
+            if (activeOverlay) activeOverlay.setMap(null);
+            overlay.setMap(map);
+            activeOverlay = overlay;
+
+            // 🔹 X 버튼 클릭 시 닫기
+            const closeBtn = overlayDiv.querySelector(".overlay-close");
+            closeBtn.onclick = () => {
+                overlay.setMap(null);
+                activeOverlay = null;
+            };
+
+            // 🔹 마커 클릭 시 오버레이를 다시 열도록 설정
             kakao.maps.event.addListener(marker, "click", () => {
                 if (activeOverlay) activeOverlay.setMap(null);
                 overlay.setMap(map);
                 activeOverlay = overlay;
-
-                // 🔹 X 버튼 클릭 시 닫기
-                const closeBtn = overlayDiv.querySelector(".overlay-close");
-                closeBtn.onclick = () => {
-                    overlay.setMap(null);
-                    activeOverlay = null;
-                };
-
-                // 선택 장소 배열에 임시 추가
-                const tempPlace = {
-                    places_id: null, // DB ID 없음
-                    name: place.place_name,
-                    latitude: parseFloat(place.y),
-                    longitude: parseFloat(place.x),
-                    isTemp: true,
-                };
-                toggleSelectPlace(tempPlace);
-            });
-
-            kakao.maps.event.addListener(marker, "click", function () {
-                // DB에 없는 장소이므로 selectedPlaces 배열에 임시 객체로 추가
-                const tempPlace = {
-                    places_id: null, // DB ID 없음
-                    name: place.place_name,
-                    latitude: parseFloat(place.y),
-                    longitude: parseFloat(place.x),
-                    isTemp: true,
-                };
-                toggleSelectPlace(tempPlace);
             });
 
             // 지도 중심 설정
@@ -258,15 +264,8 @@ function searchPlaceByKakao(keyword) {
             }
 
             if (!bounds.isEmpty()) {
-                const sw = bounds.getSouthWest();
-                const ne = bounds.getNorthEast();
-
-                if (sw.equals(ne)) {
-                    map.setCenter(sw);
-                    map.setLevel(5);
-                } else {
-                    map.setBounds(bounds);
-                }
+                map.setCenter(bounds.getCenter());
+                map.setLevel(5);
             }
         } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
             alert("검색 결과가 없습니다.");
@@ -353,8 +352,12 @@ function toggleSelectPlace(place) {
     const index = selectedPlaces.findIndex(
         (p) => p.places_id === place.places_id
     );
-    if (index >= 0) selectedPlaces.splice(index, 1);
-    else selectedPlaces.push(place);
+    if (index > -1) {
+        // 이미 목록에 있는 경우, 제거하지 않고 알림만 표시
+        console.log("이미 선택된 장소입니다:", place.name);
+        return;
+    }
+    selectedPlaces.push(place);
     renderSelectedList();
 }
 
@@ -366,7 +369,7 @@ function renderSelectedList() {
 
     selectedPlaces.forEach((p, index) => {
         const li = document.createElement("li");
-        li.textContent = `${p.name} (lat: ${p.latitude}, lng: ${p.longitude})`;
+        li.textContent = `${index + 1}. ${p.name || "알 수 없는 장소"} (${p.address || "주소 정보 없음"})`;
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
@@ -401,13 +404,13 @@ async function saveSelectedPlaces() {
 
         // 중복 처리
         const duplicatePlaces = selectedPlaces.filter((p) =>
-            existingPlaceIds.includes(p.places_id)
+            !p.isTemp && existingPlaceIds.includes(p.places_id)
         );
         if (duplicatePlaces.length > 0) {
             const names = duplicatePlaces.map((p) => p.name).join(", ");
-            alert(
-                `이미 저장된 장소: ${duplicate.map((d) => d.name).join(", ")}`
-            );
+            if (!confirm(`이미 저장된 장소: ${names}. 계속 저장하시겠습니까?`)) {
+                return;
+            }
         }
 
         // 3️⃣ DB에 있는 장소 bulk 저장
@@ -441,7 +444,7 @@ async function saveSelectedPlaces() {
             if (!addRes.ok) {
                 const errText = await addRes.text();
                 console.error("임시 장소 저장 실패:", errText);
-                alert(`"${p.name}" 저장 실패: ${errText}`);
+                alert(`'${p.name}' 저장 실패: ${errText}`);
             } else {
                 const data = parseBigIntFields(await addRes.json());
                 p.places_id = data.places_id; // 새 ID 업데이트
@@ -479,16 +482,14 @@ function renderCoursePlaces(places) {
         const li = document.createElement("li");
         li.textContent = `${index + 1}. ${
             p.name || "알 수 없는 장소"
-        } (lat: ${lat}, lng: ${lng})`;
+        } (${p.address || "주소 정보 없음"})`;
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.textContent = "코스 삭제";
         delBtn.addEventListener("click", async () => {
             const confirmDelete = confirm(
-                `"${
-                    p.name || "알 수 없는 장소"
-                }" 장소를 코스에서 삭제하시겠습니까?`
+                `'${p.name || "알 수 없는 장소"}' 장소를 코스에서 삭제하시겠습니까?`
             );
             if (confirmDelete) {
                 try {
@@ -507,7 +508,7 @@ function renderCoursePlaces(places) {
                     const response = parseBigIntFields(await res.json());
                     console.log("DELETE response:", response);
                     alert(
-                        `${p.name || "알 수 없는 장소"} 장소가 삭제되었습니다.`
+                        `'${p.name || "알 수 없는 장소"}' 장소가 삭제되었습니다.`
                     );
                     renderCoursePlaces(response.places);
 

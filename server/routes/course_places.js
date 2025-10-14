@@ -67,7 +67,7 @@ router.post("/bulk", async (req, res) => {
 
         const rows = await connection.query(
             `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = ?
@@ -108,7 +108,7 @@ router.get("/courses/:courses_id", async (req, res) => {
 
         connection = await pool.getConnection();
         const query = `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = ?
@@ -166,7 +166,7 @@ router.delete("/places/:places_id", async (req, res) => {
 
         const rows = await connection.query(
             `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = 1
