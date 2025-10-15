@@ -50,16 +50,18 @@ app.use(
 );
 
 
-app.use("/places", require("./routes/places"));
-app.use("/courses", require("./routes/courses"));
-app.use("/course_places", require("./routes/course_places"));
-app.use("/schedules", require("./routes/schedules"));
-app.use("/alarms", require("./routes/alarms"));
+app.use("/places", require("../routes/places"));
+app.use("/courses", require("../routes/courses"));
+app.use("/course_places", require("../routes/course_places"));
+app.use("/schedules", require("../routes/schedules"));
+app.use("/alarms", require("../routes/alarms"));
 
+// 정적 파일 
 app.use(express.static(path.join(__dirname, "public"), { maxAge: 0 }));
 
+// index.html 전송
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    res.sendFile(path.join(__dirname, "../index.html"));
 });
 
 app.get("/api/config", (req, res) => { 
@@ -70,7 +72,7 @@ app.get("/api/config", (req, res) => {
 });
 
 const fs = require("fs");
-console.log(path.join(__dirname, "public", "index.html"));
-console.log(fs.existsSync(path.join(__dirname, "public", "index.html")));
+console.log(path.join(__dirname, "..", "index.html"));
+console.log(fs.existsSync(path.join(__dirname, "..", "index.html")));
 
 

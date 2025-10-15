@@ -1,4 +1,4 @@
-const ALARMS_API = window.API_BASE; 
+// const ALARMS_API = window.API_BASE; (GitHub Pages용)
 const COURSE_ID = 1; // 현재 코스 ID, 필요시 동적 변경 가능
 
 const alarmTimeInput = document.getElementById("alarmTime");
@@ -6,7 +6,13 @@ const alarmMessageInput = document.getElementById("alarmMessage");
 const addAlarmBtn = document.getElementById("addAlarmBtn");
 const alarmList = document.getElementById("alarmList");
 
-let alarms = [];
+// let alarms = [];
+let alarms = JSON.parse(localStorage.getItem("alarms") || "[]");
+
+// 알람 저장
+function saveAlarms() {
+    localStorage.setItem("alarms", JSON.stringify(alarms));
+}
 
 // 브라우저 알람 울림
 function scheduleAlarm(alarm) {
@@ -82,20 +88,24 @@ function renderAlarms() {
         delBtn.style.marginLeft = "8px";
         delBtn.addEventListener("click", async () => {
             if (!confirm(`"${alarm.message}" 알람을 삭제하시겠습니까?`)) return;
-            try {
-                const res = await fetch(
-                    `${window.API_BASE}/alarms/${alarm.alarms_id}`,
-                    {
-                        method: "DELETE",
-                    }
-                );
-                if (!res.ok) throw new Error("삭제 실패");
-                alarms = alarms.filter((a) => a.alarms_id !== alarm.alarms_id);
-                renderAlarms();
-            } catch (err) {
-                console.error("알람 삭제 실패:", err);
-                alert("알람 삭제에 실패했습니다.");
-            }
+            alarms = alarms.filter((a) => a.alarms_id !== alarm.alarms_id);
+            saveAlarms();
+            renderAlarms();
+
+            // try {
+            //     const res = await fetch(
+            //         `${window.API_BASE}/alarms/${alarm.alarms_id}`,
+            //         {
+            //             method: "DELETE",
+            //         }
+            //     );
+            //     if (!res.ok) throw new Error("삭제 실패");
+            //     alarms = alarms.filter((a) => a.alarms_id !== alarm.alarms_id);
+            //     renderAlarms();
+            // } catch (err) {
+            //     console.error("알람 삭제 실패:", err);
+            //     alert("알람 삭제에 실패했습니다.");
+            // }
         });
 
         li.appendChild(delBtn);
@@ -107,23 +117,23 @@ function renderAlarms() {
 }
 
 // DB에서 알람 조회
-async function loadAlarms() {
-    try {
-        const res = await fetch(
-            `${window.API_BASE}/alarms/courses/${COURSE_ID}`
-        );
-        if (!res.ok) throw new Error("알람 조회 실패");
-        const data = await res.json();
-        alarms = data;
-        renderAlarms();
-    } catch (err) {
-        console.error(err);
-        alarmList.innerHTML = "<li>알람을 불러올 수 없습니다.</li>";
-    }
-}
+// async function loadAlarms() {
+//     try {
+//         const res = await fetch(
+//             `${window.API_BASE}/alarms/courses/${COURSE_ID}`
+//         );
+//         if (!res.ok) throw new Error("알람 조회 실패");
+//         const data = await res.json();
+//         alarms = data;
+//         renderAlarms();
+//     } catch (err) {
+//         console.error(err);
+//         alarmList.innerHTML = "<li>알람을 불러올 수 없습니다.</li>";
+//     }
+// }
 
 // 새로운 알람 등록
-async function addAlarm() {
+function addAlarm() {
     const timeValue = alarmTimeInput.value;
     const messageValue = alarmMessageInput.value.trim();
 
@@ -132,43 +142,79 @@ async function addAlarm() {
         return;
     }
 
-    try {
-        const res = await fetch(`${window.API_BASE}/alarms`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                courses_id: COURSE_ID,
-                message: messageValue,
-                alarm_time: timeValue,
-            }),
-        });
+    const newAlarm = {
+        alarms_id: Date.now(),
+        courses_id: COURSE_ID,
+        message: messageValue,
+        alarm_time: timeValue,
+        scheduled: false,
+    };
 
-        // 서버 응답을 한 번만 읽음
-        const newAlarm = await res.json();
+    alarms.push(newAlarm);
+    saveAlarms();
+    renderAlarms();
 
-        if (!res.ok) {
-            console.error(
-                `서버 응답 에러: ${res.status} - ${
-                    newAlarm.error || "알 수 없음"
-                }`
-            );
-            return; // 실패해도 팝업은 안 뜨게
-        }
-
-        alarms.push(newAlarm);
-        renderAlarms();
-        alert("✅ 알람이 등록되었습니다!");
-
-        // 입력 초기화
-        alarmTimeInput.value = "";
-        alarmMessageInput.value = "";
-    } catch (err) {
-        console.error(err);
-    }
+    alarmTimeInput.value = "";
+    alarmMessageInput.value = "";
+    alert("✅ 알람이 등록되었습니다!");
 }
 
-function initAlarms() {                                                                                   
-    addAlarmBtn.addEventListener("click", addAlarm);
-    loadAlarms();                                                                                         
-};
+// 초기화
+function initAlarms() {
+    addAlarmBtn.addEventListener("click", (e) => {
+        e.preventDefault(); // 폼 제출 방지
+        addAlarm();
+    });
+    renderAlarms();
+}
+
+// 새로운 알람 등록
+// async function addAlarm() {
+//     const timeValue = alarmTimeInput.value;
+//     const messageValue = alarmMessageInput.value.trim();
+
+//     if (!timeValue || !messageValue) {
+//         alert("시간과 메시지를 모두 입력해주세요.");
+//         return;
+//     }
+
+//     try {
+//         const res = await fetch(`${window.API_BASE}/alarms`, {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify({
+//                 courses_id: COURSE_ID,
+//                 message: messageValue,
+//                 alarm_time: timeValue,
+//             }),
+//         });
+
+//         // 서버 응답을 한 번만 읽음
+//         const newAlarm = await res.json();
+
+//         if (!res.ok) {
+//             console.error(
+//                 `서버 응답 에러: ${res.status} - ${
+//                     newAlarm.error || "알 수 없음"
+//                 }`
+//             );
+//             return; // 실패해도 팝업은 안 뜨게
+//         }
+
+//         alarms.push(newAlarm);
+//         renderAlarms();
+//         alert("✅ 알람이 등록되었습니다!");
+
+//         // 입력 초기화
+//         alarmTimeInput.value = "";
+//         alarmMessageInput.value = "";
+//     } catch (err) {
+//         console.error(err);
+//     }
+// }
+
+// function initAlarms() {                                                                                   
+//     addAlarmBtn.addEventListener("click", addAlarm);
+//     loadAlarms();                                                                                         
+// };
 

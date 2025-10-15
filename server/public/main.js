@@ -1,3 +1,6 @@
+// API_BASE 끝에 슬래시 중복 방지
+const API = window.API_BASE.replace(/\/$/, "");
+
 var map;
 let markers = [];
 let allPlaces = [];
@@ -88,25 +91,40 @@ function initMap() {
     initAlarms();
 
     // 지도 클릭 이벤트: 클릭한 위치에 마커를 추가하고 선택 목록에 추가
-    kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
+    kakao.maps.event.addListener(map, "click", function (mouseEvent) {
         // 클릭한 위치의 좌표
         const latlng = mouseEvent.latLng;
-        // 주소-좌표 변환 객체 생성 
+        // 주소-좌표 변환 객체 생성
         const geocoder = new kakao.maps.services.Geocoder();
         // 좌표로 주소 정보 요청
-        geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function (result, status) {
-            let placeName = '사용자 지정 위치';
-            let placeAddress = '주소 정보 없음';
-            if (status === kakao.maps.services.Status.OK) {
-                const roadAddress = result[0].road_address ? result[0].road_address.address_name : null;
-                const oldAddress = result[0].address ? result[0].address.address_name : null;
-                placeAddress = roadAddress || oldAddress || '주소 정보 없음';
+        geocoder.coord2Address(
+            latlng.getLng(),
+            latlng.getLat(),
+            function (result, status) {
+                let placeName = "사용자 지정 위치";
+                let placeAddress = "주소 정보 없음";
+                if (status === kakao.maps.services.Status.OK) {
+                    const roadAddress = result[0].road_address
+                        ? result[0].road_address.address_name
+                        : null;
+                    const oldAddress = result[0].address
+                        ? result[0].address.address_name
+                        : null;
+                    placeAddress =
+                        roadAddress || oldAddress || "주소 정보 없음";
 
-                const buildingName = result[0].road_address && result[0].road_address.building_name ? result[0].road_address.building_name : null;
-                placeName = buildingName || placeAddress;
-            }
-                
-                const marker = new kakao.maps.Marker({ position: latlng, map: map });
+                    const buildingName =
+                        result[0].road_address &&
+                        result[0].road_address.building_name
+                            ? result[0].road_address.building_name
+                            : null;
+                    placeName = buildingName || placeAddress;
+                }
+
+                const marker = new kakao.maps.Marker({
+                    position: latlng,
+                    map: map,
+                });
                 const tempPlace = {
                     places_id: `temp_${Date.now()}`,
                     name: placeName,
@@ -116,19 +134,19 @@ function initMap() {
                     isTemp: true,
                 };
 
-                // 선택 장소 목록에 추가 
+                // 선택 장소 목록에 추가
                 marker.tempId = tempPlace.places_id;
                 lastClickedMarker = marker;
 
                 toggleSelectPlace(tempPlace);
                 markers.push(marker);
-             })                                                                                        
-     })                                                                                            
-}       
-
+            }
+        );
+    });
+}
 
 // ESC 키 이벤트 리스너
-document.addEventListener("keydown", (event) => { 
+document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
         // 열려있는 커스텀 오버레이(인포윈도우) 닫기
         if (activeOverlay) {
@@ -156,7 +174,6 @@ document.addEventListener("keydown", (event) => {
         }
     }
 });
-
 
 // 클러스터링 기반 마커 토글
 function toggleAllMarkers() {
@@ -277,18 +294,19 @@ function searchPlaceByKakao(keyword) {
             );
             map.setCenter(center);
             map.setLevel(3);
-            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-                alert("검색 결과가 없습니다.");
-            } else {
-                console.error("카카오맵 검색 오류:", status);
-            }
+        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+            alert("검색 결과가 없습니다.");
+        } else {
+            console.error("카카오맵 검색 오류:", status);
+        }
     });
 }
 
 // 기존 DB 마커 로드
 async function loadPlaces() {
     try {
-        const res = await fetch(`${API_BASE}/places`);
+        // const res = await fetch(`${API_BASE}/places`);
+        const res = await fetch(`${API}/places`);
         if (!res.ok) {
             const errorText = await res.text();
             throw new Error(`장소 조회 실패: ${res.status} - ${errorText}`);
@@ -379,7 +397,9 @@ function renderSelectedList() {
 
     selectedPlaces.forEach((p, index) => {
         const li = document.createElement("li");
-        li.textContent = `${index + 1}. ${p.name || "알 수 없는 장소"} (${p.address || "주소 정보 없음"})`;
+        li.textContent = `${index + 1}. ${p.name || "알 수 없는 장소"} (${
+            p.address || "주소 정보 없음"
+        })`;
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
@@ -407,18 +427,21 @@ async function saveSelectedPlaces() {
         const tempPlaces = selectedPlaces.filter((p) => p.isTemp);
 
         // 2️⃣ 기존 장소 조회
-        const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        // const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        const res = await fetch(`${API}/course_places/courses/1`);
         if (!res.ok) throw new Error("기존 장소 조회 실패");
         const existingPlaces = parseBigIntFields(await res.json());
         const existingPlaceIds = existingPlaces.map((p) => p.places_id);
 
         // 중복 처리
-        const duplicatePlaces = selectedPlaces.filter((p) =>
-            !p.isTemp && existingPlaceIds.includes(p.places_id)
+        const duplicatePlaces = selectedPlaces.filter(
+            (p) => !p.isTemp && existingPlaceIds.includes(p.places_id)
         );
         if (duplicatePlaces.length > 0) {
             const names = duplicatePlaces.map((p) => p.name).join(", ");
-            if (!confirm(`이미 저장된 장소: ${names}. 계속 저장하시겠습니까?`)) {
+            if (
+                !confirm(`이미 저장된 장소: ${names}. 계속 저장하시겠습니까?`)
+            ) {
                 return;
             }
         }
@@ -429,7 +452,8 @@ async function saveSelectedPlaces() {
             .map((p) => p.places_id);
 
         if (dbPlaceIdsToSave.length > 0) {
-            await fetch(`${API_BASE}/course_places/bulk`, {
+            // await fetch(`${API_BASE}/course_places/bulk`, {
+            await fetch(`${API}/course_places/bulk`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -441,7 +465,8 @@ async function saveSelectedPlaces() {
 
         // 4️⃣ 임시 장소는 /add-temp API로 등록 후 코스에 추가
         for (const p of tempPlaces) {
-            const addRes = await fetch(`${API_BASE}/course_places/add-temp`, {
+            // const addRes = await fetch(`${API_BASE}/course_places/add-temp`, {
+            const addRes = await fetch(`${API}/course_places/add-temp`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -508,7 +533,11 @@ function renderCoursePlaces(places) {
             if (confirmDelete) {
                 try {
                     const res = await fetch(
-                        `${API_BASE}/course_places/places/${p.places_id}`,
+                        // `${API_BASE}/course_places/places/${p.places_id}`,
+                        // {
+                        //     method: "DELETE",
+                        // }
+                        `${API}/course_places/places/${p.places_id}`,
                         {
                             method: "DELETE",
                         }
@@ -562,7 +591,8 @@ async function toggleCoursePolyline() {
 // 코스 폴리라인 표시
 async function showCoursePolyline() {
     try {
-        const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        // const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        const res = await fetch(`${API}/course_places/courses/1`);
         if (!res.ok) {
             const errorText = await res.text();
             throw new Error(`폴리라인 조회 실패: ${res.status} - ${errorText}`);
@@ -613,7 +643,8 @@ function hideCoursePolyline() {
 // 서버에서 코스 불러오기
 async function loadCoursePolyline() {
     try {
-        const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        // const res = await fetch(`${API_BASE}/course_places/courses/1`);
+        const res = await fetch(`${API}/course_places/courses/1`);
         if (!res.ok) {
             const errorText = await res.text();
             console.error("❌ 서버 응답 에러:", res.status, errorText);
@@ -684,7 +715,8 @@ async function loadSchedule() {
 
     container.innerHTML = "";
     try {
-        const res = await fetch(`${API_BASE}/schedules/courses/1`);
+        // const res = await fetch(`${API_BASE}/schedules/courses/1`);
+        const res = await fetch(`${API}/schedules/courses/1`);
         if (!res.ok) {
             const errorText = await res.text();
             throw new Error(`일정 조회 실패: ${res.status} - ${errorText}`);
@@ -702,7 +734,7 @@ async function loadSchedule() {
             article.innerHTML = `<div class="index">${i + 1}</div>
                                  <div>
                                     <h3>${s.name}</h3>
-                                    <p>${s.description}</p>
+                                    <p>${s.description || ""}</p>
                                  </div>`;
             container.appendChild(article);
         });
@@ -740,4 +772,3 @@ function filterMarkers(query) {
         alert("검색 결과가 없습니다.");
     }
 }
-
