@@ -95,13 +95,22 @@ function initMap() {
         const geocoder = new kakao.maps.services.Geocoder();
         // 좌표로 주소 정보 요청
         geocoder.coord2Address(latlng.getLng(), latlng.getLat(), function (result, status) {
-            const addressName = (status === kakao.maps.services.Status.OK) ?
-                (result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name) : '사용자 지정 위치';
+            let placeName = '사용자 지정 위치';
+            let placeAddress = '주소 정보 없음';
+            if (status === kakao.maps.services.Status.OK) {
+                const roadAddress = result[0].road_address ? result[0].road_address.address_name : null;
+                const oldAddress = result[0].address ? result[0].address.address_name : null;
+                placeAddress = roadAddress || oldAddress || '주소 정보 없음';
+
+                const buildingName = result[0].road_address && result[0].road_address.building_name ? result[0].road_address.building_name : null;
+                placeName = buildingName || placeAddress;
+            }
                 
                 const marker = new kakao.maps.Marker({ position: latlng, map: map });
                 const tempPlace = {
                     places_id: `temp_${Date.now()}`,
-                    name: addressName,
+                    name: placeName,
+                    address: placeAddress,
                     latitude: latlng.getLat(),
                     longitude: latlng.getLng(),
                     isTemp: true,
@@ -113,8 +122,8 @@ function initMap() {
 
                 toggleSelectPlace(tempPlace);
                 markers.push(marker);
-             });                                                                                        
-     });                                                                                            
+             })                                                                                        
+     })                                                                                            
 }       
 
 
@@ -189,23 +198,31 @@ function searchPlaceByKakao(keyword) {
             const place = data[0]; // 배열의 첫 번째 결과만 사용
             console.log("카카오맵 검색 결과:", data);
 
+            // 🔹 코스 마커 숨기기 (검색 집중)
+            if (clusterer) clusterer.clear();
+            markersVisible = false;
+
             // 검색된 장소를 selectedPlaces에 추가하기 위한 임시 객체
             const tempPlace = {
                 places_id: `temp_${Date.now()}`, // 임시 ID 부여
                 name: place.place_name,
+                address: place.road_address_name || place.address_name,
                 latitude: parseFloat(place.y),
                 longitude: parseFloat(place.x),
                 isTemp: true,
             };
+
             // 검색 즉시 선택 목록에 추가
             toggleSelectPlace(tempPlace);
 
             // 검색 결과 마커 생성
             const marker = new kakao.maps.Marker({
-                map: map,
                 position: new kakao.maps.LatLng(place.y, place.x),
                 title: place.place_name,
             });
+
+            // 🔹 마커를 지도에 명시적으로 표시 (clusterer 영향 방지)
+            marker.setMap(map);
 
             // 생성된 마커를 lastClickedMarker로 설정하여 ESC로 삭제 가능하게 함
             marker.tempId = tempPlace.places_id;
@@ -218,10 +235,11 @@ function searchPlaceByKakao(keyword) {
             overlayDiv.innerHTML = `
                 <div class="overlay-wrap">
                     <div class="overlay-title">${place.place_name}</div>
-                    <div class="overlay-body">${place.road_address_name ||
-                place.address_name ||
-                "주소 정보 없음"
-                }</div>
+                    <div class="overlay-body">${
+                        place.road_address_name ||
+                        place.address_name ||
+                        "주소 정보 없음"
+                    }</div>
                     <div class="overlay-close" title="닫기">×</div>
                 </div>
             `;
@@ -252,26 +270,18 @@ function searchPlaceByKakao(keyword) {
                 activeOverlay = overlay;
             });
 
-            // 지도 중심 설정
-            const bounds = new kakao.maps.LatLngBounds();
-            if (place.x && place.y) {
-                bounds.extend(
-                    new kakao.maps.LatLng(
-                        parseFloat(place.y),
-                        parseFloat(place.x)
-                    )
-                );
+            // 🔹 검색 결과 중심으로 지도 이동 + 확대
+            const center = new kakao.maps.LatLng(
+                parseFloat(place.y),
+                parseFloat(place.x)
+            );
+            map.setCenter(center);
+            map.setLevel(3);
+            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                alert("검색 결과가 없습니다.");
+            } else {
+                console.error("카카오맵 검색 오류:", status);
             }
-
-            if (!bounds.isEmpty()) {
-                map.setCenter(bounds.getCenter());
-                map.setLevel(5);
-            }
-        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-            alert("검색 결과가 없습니다.");
-        } else {
-            console.error("카카오맵 검색 오류:", status);
-        }
     });
 }
 
@@ -305,8 +315,8 @@ async function loadPlaces() {
             overlayDiv.innerHTML = `
                 <div class="overlay-wrap">
                     <div class="overlay-title">${p.name}</div>
-                <div class="overlay-body">
-                    ${p.address || "주소 정보 없음"}
+                    <div class="overlay-body">
+                        ${p.address || "주소 정보 없음"}
                     </div>
                     <div class="overlay-close" title="닫기">×</div>
                 </div>
@@ -424,7 +434,7 @@ async function saveSelectedPlaces() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     courses_id: 1,
-                    places: dbPlaceIdsToSave,
+                    places: dbPlaceIdsToSave, // 장소의 ID 목록만 보냅니다.
                 }),
             });
         }
@@ -437,6 +447,7 @@ async function saveSelectedPlaces() {
                 body: JSON.stringify({
                     courses_id: 1,
                     name: p.name,
+                    address: p.address,
                     latitude: p.latitude,
                     longitude: p.longitude,
                 }),
@@ -475,21 +486,24 @@ function renderCoursePlaces(places) {
     }
 
     placesArray.forEach((p, index) => {
-        const lat = p.latitude || "N/A";
-        const lng = p.longitude || "N/A";
-        const seq = p.sequence || "N/A";
+        // 서버에서 받은 코스 장소에 address가 없을 경우, allPlaces에서 찾아 보충합니다.
+        const fullPlace = allPlaces.find((ap) => ap.places_id === p.places_id);
+        const address =
+            p.address || (fullPlace ? fullPlace.address : "주소 정보 없음");
 
         const li = document.createElement("li");
-        li.textContent = `${index + 1}. ${
-            p.name || "알 수 없는 장소"
-        } (${p.address || "주소 정보 없음"})`;
+        li.textContent = `${index + 1}. ${p.name || "알 수 없는 장소"} (${
+            address || "주소 정보 없음"
+        })`;
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.textContent = "코스 삭제";
         delBtn.addEventListener("click", async () => {
             const confirmDelete = confirm(
-                `'${p.name || "알 수 없는 장소"}' 장소를 코스에서 삭제하시겠습니까?`
+                `'${
+                    p.name || "알 수 없는 장소"
+                }' 장소를 코스에서 삭제하시겠습니까?`
             );
             if (confirmDelete) {
                 try {
@@ -508,7 +522,9 @@ function renderCoursePlaces(places) {
                     const response = parseBigIntFields(await res.json());
                     console.log("DELETE response:", response);
                     alert(
-                        `'${p.name || "알 수 없는 장소"}' 장소가 삭제되었습니다.`
+                        `'${
+                            p.name || "알 수 없는 장소"
+                        }' 장소가 삭제되었습니다.`
                     );
                     renderCoursePlaces(response.places);
 
@@ -557,7 +573,7 @@ async function showCoursePolyline() {
         const dataArray = Array.isArray(data) ? data : [data];
 
         if (dataArray.length < 2) {
-            alert("폴리라인을 그리려면 최소 2개 이상의 장소가 필요합니다.");
+            // alert("폴리라인을 그리려면 최소 2개 이상의 장소가 필요합니다.");
             return;
         }
 

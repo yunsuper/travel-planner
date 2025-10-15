@@ -67,7 +67,7 @@ router.post("/bulk", async (req, res) => {
 
         const rows = await connection.query(
             `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.address, p.latitude, p.longitude, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = ?
@@ -108,7 +108,7 @@ router.get("/courses/:courses_id", async (req, res) => {
 
         connection = await pool.getConnection();
         const query = `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.address, p.latitude, p.longitude, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = ?
@@ -166,7 +166,7 @@ router.delete("/places/:places_id", async (req, res) => {
 
         const rows = await connection.query(
             `
-            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.latitude, p.longitude, p.address, cp.sequence
+            SELECT cp.id, cp.courses_id, cp.places_id, p.name, p.address, p.latitude, p.longitude, cp.sequence
             FROM course_places cp
             INNER JOIN places p ON cp.places_id = p.places_id
             WHERE cp.courses_id = 1
@@ -196,12 +196,12 @@ router.delete("/places/:places_id", async (req, res) => {
 
 // ✅ 임시 장소를 DB에 등록 후 코스에 추가
 router.post("/add-temp", async (req, res) => {
-    const { courses_id, name, latitude, longitude } = req.body;
+    const { courses_id, name, address, latitude, longitude } = req.body;
     if (!courses_id || isNaN(parseInt(courses_id, 10))) {
         return res.status(400).json({ error: "유효한 courses_id가 필요합니다." });
     }
-    if (!name || !latitude || !longitude) {
-        return res.status(400).json({ error: "이름과 좌표가 필요합니다." });
+    if (!name || !address || !latitude || !longitude) {
+        return res.status(400).json({ error: "이름, 주소, 좌표가 필요합니다." });
     }
 
     let connection;
@@ -211,40 +211,39 @@ router.post("/add-temp", async (req, res) => {
 
         // 1. places 테이블에 새 장소 추가
         const insertPlaceQuery =
-            "INSERT INTO places (name, latitude, longitude) VALUES (?, ?, ?)";
-        const result = await connection.query(insertPlaceQuery, [
+            "INSERT INTO places (name, address, latitude, longitude) VALUES (?, ?, ?, ?)";
+        const resultArr = await connection.query(insertPlaceQuery, [
             name,
+            address,
             latitude,
             longitude,
         ]);
+        const result = Array.isArray(resultArr) ? resultArr[0] : resultArr;
         const newPlaceId = result.insertId;
 
         // 2. course_places에 코스와 연결
-        const insertCourseQuery =
-            "INSERT INTO course_places (courses_id, places_id, sequence) VALUES (?, ?, ?)";
-
-        // sequence는 기존 최대값 + 1
-        const maxSeqResult = await connection.query(
+        const maxSeqArr = await connection.query(
             "SELECT MAX(sequence) AS maxSeq FROM course_places WHERE courses_id = ?",
             [courses_id]
         );
+        const maxSeqResult = Array.isArray(maxSeqArr)
+            ? maxSeqArr[0]
+            : maxSeqArr;
         const maxSeq = maxSeqResult[0]?.maxSeq || 0;
 
-        await connection.query(insertCourseQuery, [
-            courses_id,
-            newPlaceId,
-            maxSeq + 1,
-        ]);
+        await connection.query(
+            "INSERT INTO course_places (courses_id, places_id, sequence) VALUES (?, ?, ?)",
+            [courses_id, newPlaceId, maxSeq + 1]
+        );
 
         await connection.commit();
 
-        // BigInt를 문자열로 변환해서 반환
         res.json({
             message: "새로운 장소가 코스에 추가되었습니다.",
             places_id: newPlaceId.toString(),
         });
     } catch (err) {
-        await connection.rollback();
+        if (connection) await connection.rollback();
         console.error("❌ 임시 장소 추가 실패:", err);
         res.status(500).json({ error: err.message });
     } finally {
