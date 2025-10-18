@@ -24,18 +24,18 @@ A web application built with the Kakao Map API featuring alarms, memos, saved ro
 
 ## Tech Stack | 기술 스택
 Frontend / 프론트엔드 </br>
-HTML5, CSS3, JavaScript (ES6+) – 기본 웹 UI 구성 및 동적 기능 구현
-Kakao Map API – 지도 표시, 장소 검색, 마커·폴리라인·클러스터링 기능 구현
+HTML5, CSS3, JavaScript (ES6+) – 기본 웹 UI 구성 및 동적 기능 구현</br>
+Kakao Map API – 지도 표시, 장소 검색, 마커·폴리라인·클러스터링 기능 구현</br></p>
 
-Backend / 백엔드
-Node.js (Express) – API 서버 및 데이터 처리
-MariaDB (or MySQL) – 저장된 코스, 알람, 메모 저장
+Backend / 백엔드</br>
+Node.js (Express) – API 서버 및 데이터 처리</br>
+MariaDB (or MySQL) – 저장된 코스, 알람, 메모 저장</br></p>
 
-Tools / 개발 도구
-Git & GitHub – 버전 관리
-Visual Studio Code – 개발 환경
-Postman – API 테스트
-Ngrok – 로컬 서버 외부 공개 및 테스트
+Tools / 개발 도구</br>
+Git & GitHub – 버전 관리</br>
+Visual Studio Code – 개발 환경</br>
+Postman – API 테스트</br>
+Ngrok – 로컬 서버 외부 공개 및 테스트</br></p></p>
 
 
 ### 🤖This is my first personal project, developed with the assistance of AI (ChatGPT) for idea refinement, coding.
