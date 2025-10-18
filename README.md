@@ -23,7 +23,7 @@ A web application built with the Kakao Map API featuring alarms, memos, saved ro
 
 
 ## Tech Stack | 기술 스택
-Frontend / 프론트엔드
+Frontend / 프론트엔드 </br>
 HTML5, CSS3, JavaScript (ES6+) – 기본 웹 UI 구성 및 동적 기능 구현
 Kakao Map API – 지도 표시, 장소 검색, 마커·폴리라인·클러스터링 기능 구현
 
