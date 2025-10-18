@@ -44,18 +44,18 @@ Ngrok – 로컬 서버 외부 공개 및 테스트
 
 
 ⬇︎ Screenshots
-<img width="1103" height="871" alt="스크린샷 2025-10-18 오후 9 17 35" src="https://github.com/user-attachments/assets/1a7e80d1-911c-4b2b-ab88-b39430c0f250" />
+<img width="500" height="871" alt="스크린샷 2025-10-18 오후 9 17 35" src="https://github.com/user-attachments/assets/1a7e80d1-911c-4b2b-ab88-b39430c0f250" />
 [Polyline & Marker Clustering]
 </br></p>
 
-<img width="1107" height="673" alt="스크린샷 2025-10-18 오후 9 18 14" src="https://github.com/user-attachments/assets/e6b83cfa-336a-4a84-9ef0-570dd9d21098" />
+<img width="500" height="673" alt="스크린샷 2025-10-18 오후 9 18 14" src="https://github.com/user-attachments/assets/e6b83cfa-336a-4a84-9ef0-570dd9d21098" />
 [Map View]
 </br></p>
 
 
 <img width="370" height="338" alt="스크린샷 2025-10-18 오후 9 25 21" src="https://github.com/user-attachments/assets/88abdabe-3c64-470f-aff8-85621b29b7fd" />
 </br>
-<img width="699" height="407" alt="스크린샷 2025-10-18 오후 9 26 16" src="https://github.com/user-attachments/assets/d7094b24-3e7c-4aa7-9492-e9c31eaa52ad" />
+<img width="500" height="407" alt="스크린샷 2025-10-18 오후 9 26 16" src="https://github.com/user-attachments/assets/d7094b24-3e7c-4aa7-9492-e9c31eaa52ad" />
 </br>
 [Alarm & Memo] </p>
 
