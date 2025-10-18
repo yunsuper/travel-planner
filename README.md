@@ -29,10 +29,10 @@ Kakao Map API – 지도 표시, 장소 검색, 마커·폴리라인·클러스�
 
 Backend / 백엔드
 Node.js (Express) – API 서버 및 데이터 처리
-MariaDB (or MySQL) – 사용자 데이터, 저장된 코스, 메모 저장
+MariaDB (or MySQL) – 저장된 코스, 알람, 메모 저장
 
 Tools / 개발 도구
-Git & GitHub – 버전 관리 및 협업
+Git & GitHub – 버전 관리
 Visual Studio Code – 개발 환경
 Postman – API 테스트
 Ngrok – 로컬 서버 외부 공개 및 테스트
