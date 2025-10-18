@@ -39,7 +39,7 @@ Ngrok – 로컬 서버 외부 공개 및 테스트
 
 
 ### This is my first personal project, developed with the assistance of AI (ChatGPT) for idea refinement, coding.
-
+</p></p>
 
 
 ⬇︎ Screenshots </p>
