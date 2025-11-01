@@ -52,9 +52,9 @@ Map View
 </p></p>
 
 
-<img width="670" height="338" alt="스크린샷 2025-10-18 오후 9 25 21" src="https://github.com/user-attachments/assets/88abdabe-3c64-470f-aff8-85621b29b7fd" /></p>
+<img width="470" height="338" alt="스크린샷 2025-10-18 오후 9 25 21" src="https://github.com/user-attachments/assets/88abdabe-3c64-470f-aff8-85621b29b7fd" /></p>
 </br>
-<img width="800" height="407" alt="스크린샷 2025-10-18 오후 9 26 16" src="https://github.com/user-attachments/assets/d7094b24-3e7c-4aa7-9492-e9c31eaa52ad" /></p>
+<img width="600" height="407" alt="스크린샷 2025-10-18 오후 9 26 16" src="https://github.com/user-attachments/assets/d7094b24-3e7c-4aa7-9492-e9c31eaa52ad" /></p>
 Alarm & Memo </p></p>
 
 
