@@ -1,14 +1,16 @@
 const express = require("express");
 const path = require("path");
 const helmet = require("helmet");
+const dotenv = require("dotenv");
+const { validateEnv } = require("./utils/validateEnv");
+const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+
+// 환경 변수 로드 및 검증
+dotenv.config();
+validateEnv();
+
 const app = express();
 app.use(express.json());
-
-// dotenv 모듈
-const dotenv = require("dotenv");
-dotenv.config();
-
-app.listen(process.env.PORT);
 
 // CSP 설정
 app.use(
@@ -50,11 +52,11 @@ app.use(
 );
 
 
-app.use("/places", require("../routes/places"));
-app.use("/courses", require("../routes/courses"));
-app.use("/course_places", require("../routes/course_places"));
-app.use("/schedules", require("../routes/schedules"));
-app.use("/alarms", require("../routes/alarms"));
+app.use("/places", require("./routes/places"));
+app.use("/courses", require("./routes/courses"));
+app.use("/course_places", require("./routes/course_places"));
+app.use("/schedules", require("./routes/schedules"));
+app.use("/alarms", require("./routes/alarms"));
 
 // 정적 파일 
 app.use(express.static(path.join(__dirname, "public"), { maxAge: 0 }));
@@ -71,8 +73,14 @@ app.get("/api/config", (req, res) => {
     });
 });
 
-const fs = require("fs");
-console.log(path.join(__dirname, "..", "index.html"));
-console.log(fs.existsSync(path.join(__dirname, "..", "index.html")));
+// 에러 처리 미들웨어 (라우터 이후에 위치)
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// 서버 시작
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ 서버가 포트 ${PORT}에서 실행 중입니다.`);
+});
 
 
