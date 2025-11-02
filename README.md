@@ -46,5 +46,11 @@ ChatGPT (OpenAI) – 아이디어 정리와 코드 보조
 
 🖼️ Screenshots
 
+<img width="813" height="871" alt="스크린샷 2025-10-18 오후 9 17 35" src="https://github.com/user-attachments/assets/25c54ba8-03a0-469e-a841-84e3fc219184" />
 
+<img width="813" height="673" alt="스크린샷 2025-10-18 오후 9 18 14" src="https://github.com/user-attachments/assets/75051640-a027-4468-bfa5-0b1c928921f5" />
+
+<img width="470" height="338" alt="스크린샷 2025-10-18 오후 9 25 21" src="https://github.com/user-attachments/assets/b4748588-3a95-4911-be49-fe566a8f042c" />
+
+<img width="750" height="407" alt="스크린샷 2025-10-18 오후 9 26 16" src="https://github.com/user-attachments/assets/24ba5dd0-1555-4dfc-acba-870cfa686af8" />
 
